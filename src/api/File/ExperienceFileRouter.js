@@ -1,7 +1,6 @@
 import Express from "express";
 import ExperienceModel from "../experiences/model.js";
 import UsersModel from "../users/model.js";
-import { isUserExisted } from "../experiences/index.js";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
@@ -23,8 +22,7 @@ const cloudinaryUploader = multer({
 
 // upload image to cloudinary ✅, update the related experiences image path using the url from cloudinary ✅
 ExperienceFilesRouter.post(
-  "/users/:userId/experiences/:expId/image",
-  isUserExisted,
+  "/experiences/:expId/image",
   cloudinaryUploader,
   async (req, res, next) => {
     try {
@@ -58,8 +56,7 @@ ExperienceFilesRouter.post(
 );
 
 ExperienceFilesRouter.get(
-  "/users/:userId/experiences/csv/download",
-  isUserExisted,
+  "/experiences/:userId/csv/download",
   async (req, res, next) => {
     try {
       const user = await UsersModel.getUserWithExperiencesDetails(

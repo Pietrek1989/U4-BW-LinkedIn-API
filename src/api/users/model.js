@@ -1,51 +1,89 @@
-import mongoose, { model } from "mongoose";
+import { DataTypes } from "sequelize";
+import sequelize from "../../db.js";
+import CommentModel from "../Comments/model.js";
+import ExperienceModel from "../experiences/model.js";
+import PostModel from "../posts/model.js";
 
-const validateEmail = function (email) {
-  const re = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
-  return re.test(email);
-};
-const { Schema } = mongoose;
-
-const UsersSchema = new Schema(
-  {
-    name: { type: String, required: true, minLength: 3, maxLength: 12 },
-    surname: { type: String, required: true, minLength: 3, maxLength: 12 },
-    email: {
-      type: String,
-      trim: true,
-      lowercase: true,
-      unique: true,
-      required: "Email address is required",
-      validate: [validateEmail, "Please fill a valid email address"],
-      match: [
-        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
-        "Please fill a valid email address",
-      ],
+const UserModel = sequelize.define("user", {
+  userId: {
+    type: DataTypes.UUID,
+    primaryKey: true,
+    defaultValue: DataTypes.UUIDV4,
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      len: [2, 20],
     },
-    bio: { type: String, required: true, minLength: 10, maxLength: 60 },
-    title: { type: String, required: true, minLength: 3, maxLength: 12 },
-    area: { type: String, required: true, minLength: 3, maxLength: 12 },
-    image: { type: String, default: "" },
-    posts: [{ type: mongoose.Types.ObjectId, required: true, ref: "Post" }],
-    experiences: [
-      { type: mongoose.Types.ObjectId, required: true, ref: "Experience" },
-    ],
-    likedPosts: [{ type: mongoose.Types.ObjectId, ref: "Post"}],
-    friends:{
-      type:[{type: mongoose.Types.ObjectId, ref: "User"}],
-      default:[]
+  },
+  surname: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      len: [2, 20],
     },
-    friendRequests:{
-      type:[{type: mongoose.Types.ObjectId, ref: "User"}],
-      default:[]
-    }
-
-    }, { timestamps: true }
-);
-
-UsersSchema.static("getUserWithExperiencesDetails", async function (id) {
-  const user = await this.findById(id).populate({ path: "experiences" });
-  return user;
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+    validate: {
+      isEmail: true,
+    },
+  },
+  bio: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      len: [5, 500],
+    },
+  },
+  title: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      len: [2, 50],
+    },
+  },
+  area: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      len: [2, 20],
+    },
+  },
+  image: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: "",
+  },
 });
 
-export default model("User", UsersSchema);
+// User with many experiences, experience with one user
+
+UserModel.hasMany(ExperienceModel, {
+  foreignKey: { name: "userId", allowNull: false },
+});
+ExperienceModel.belongsTo(UserModel, {
+  foreignKey: { name: "userId", allowNull: false },
+});
+// User with many posts, post with one user
+
+UserModel.hasMany(PostModel, {
+  foreignKey: { name: "userId", allowNull: false },
+});
+PostModel.belongsTo(UserModel, {
+  foreignKey: { name: "userId", allowNull: false },
+});
+
+// User with many comments, comment with one user
+
+UserModel.hasMany(CommentModel, {
+  foreignKey: { name: "userId", allowNull: false },
+});
+CommentModel.belongsTo(UserModel, {
+  foreignKey: { name: "userId", allowNull: false },
+});
+
+export default UserModel;

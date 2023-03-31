@@ -1,18 +1,40 @@
-import mongoose from "mongoose";
-const { Schema, model } = mongoose;
+import { DataTypes } from "sequelize";
+import sequelize from "../../db.js";
 
-const experienceSchema = new Schema(
-  {
-    userId: { type: mongoose.Types.ObjectId },
-    role: { type: String, required: true },
-    company: { type: String, required: true },
-    startDate: { type: Date, required: true },
-    endDate: { type: Date || null, required: true },
-    description: { type: String, required: true },
-    area: { type: String, required: true },
-    image: { type: String },
+const ExperienceModel = sequelize.define("experience", {
+  experienceId: {
+    type: DataTypes.UUID,
+    primaryKey: true,
+    defaultValue: DataTypes.UUIDV4,
   },
-  { timestamps: true }
-);
+  role: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  company: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  startDate: {
+    type: DataTypes.DATE,
+    allowNull: false,
+  },
+  endDate: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  description: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  area: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  image: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+});
 
-export default model("Experience", experienceSchema);
+export default ExperienceModel;

@@ -1,22 +1,19 @@
-import mongoose, { model, Types } from "mongoose";
+import { DataTypes } from "sequelize";
+import sequelize from "../../db.js";
 
-const { Schema } = mongoose;
-
-const commentSchema = new Schema(
-  {
-    user: { type: mongoose.Types.ObjectId, required: true, ref: "User" },
-    comment: { type: String, required: true, minLength: 5, maxLength: 20 },
-    post: { type: mongoose.Types.ObjectId, required: true, ref: "Post" },
+const CommentModel = sequelize.define("comment", {
+  commentId: {
+    type: DataTypes.UUID,
+    primaryKey: true,
+    defaultValue: DataTypes.UUIDV4,
   },
-  { timeStamps: true }
-);
-
-commentSchema.static("getCommentsWithUserDetails", async function () {
-  const comments = await this.find().populate({
-    path: "user",
-    select: "name surname image createdAt updatedAt",
-  });
-  return comments;
+  comment: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      len: [2, 100],
+    },
+  },
 });
 
-export default model("Comment", commentSchema);
+export default CommentModel;

@@ -1,24 +1,24 @@
 import Express from "express";
 import createHttpError from "http-errors";
 import PostModel from "./model.js";
-import UsersModel from "../users/model.js";
-import q2m from "query-to-mongo";
+
+import UserModel from "../users/model.js";
+import CommentModel from "../Comments/model.js";
+import { Op } from "sequelize";
+
 const PostsRouter = Express.Router();
 
-PostsRouter.post("/posts", async (req, res, next) => {
+PostsRouter.post("/posts/:userId", async (req, res, next) => {
   try {
-    const newPost = new PostModel(req.body);
-    const { _id } = await newPost.save();
-    if (newPost) {
-      const updatedUser = await UsersModel.findByIdAndUpdate(
-        newPost.user,
-        { $push: { posts: _id } },
-        { new: true, runValidators: true }
-      );
-      if (updatedUser) {
-        res.send(updatedUser);
-      }
+    const post = await PostModel.create({
+      ...req.body,
+      userId: req.params.userId, // set the foreign key to the user's ID
+    });
+    const user = await UserModel.findByPk(req.params.userId);
+    if (user) {
+      await user.addPost(post);
     }
+    res.status(201).send(post);
   } catch (err) {
     next(err);
   }
@@ -26,163 +26,199 @@ PostsRouter.post("/posts", async (req, res, next) => {
 
 PostsRouter.get("/posts", async (req, res, next) => {
   try {
-    const mongoQuery = q2m(req.query);
-    const allPosts = await PostModel.find(
-      mongoQuery.criteria,
-      mongoQuery.options.fields
-    )
-      .limit(mongoQuery.options.limit)
-      .skip(mongoQuery.options.skip)
-      .sort(mongoQuery.options.sort)
-      .populate({ path: "comments", select: "comment user" })
-      .populate({ path: "user", select: " name surname  image  _id title" })
-      .populate({
-        path: "comments user likes",
-        select: "name surname image",
-      })
-      .populate({
-        path: "comments",
-        populate: {
-          path: "user",
-          select: "name surname image",
+    const posts = await PostModel.findAndCountAll({
+      // where: { ...query },
+      order: [["userId", "ASC"]],
+      // limit,
+      // offset,
+      include: [
+        { model: UserModel, attributes: ["name"] },
+        {
+          model: CommentModel,
+          attributes: ["comment"],
+          include: [
+            {
+              model: UserModel,
+              attributes: ["name", "surname"],
+            },
+          ],
         },
-      });
-
-    const total = await PostModel.countDocuments(mongoQuery.criteria);
-
+      ],
+    });
     res.send({
-      links: mongoQuery.links(
-        process.env.FE_PROD_URL || process.env.FE_DEV_URL + "/api/posts/",
-        total
-      ),
-      total,
-      numberOfPages: Math.ceil(total / mongoQuery.options.limit),
-      allPosts,
+      total: posts.count,
+      // offset,
+      // limit,
+      posts: posts.rows,
     });
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    next(error);
   }
 });
 
-PostsRouter.get("/posts/:postId", async (req, res, next) => {
+PostsRouter.get("/posts/:userId", async (req, res, next) => {
   try {
-    const Posts = await PostModel.findById(req.params.postId).populate({
-      path: "likes",
-      select: " name surname userId",
+    // const limit = req.query.limit || 10;
+    // const offset = req.query.offset || 0;
+    const posts = await PostModel.findAndCountAll({
+      where: { userId: req.params.userId },
+      order: [["createdAt", "ASC"]],
+      // limit,
+      // offset,
+      include: [
+        { model: UserModel, attributes: ["name"] },
+        {
+          model: CommentModel,
+          attributes: ["comment"],
+          include: [
+            {
+              model: UserModel,
+              attributes: ["name", "surname"],
+            },
+          ],
+        },
+      ],
     });
+    res.send({
+      total: posts.count,
+      // offset,
+      // limit,
+      posts: posts.rows,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
-    if (Posts) {
-      res.send(Posts);
-    } else {
+PostsRouter.get("/posts/single/:postId", async (req, res, next) => {
+  try {
+    const post = await PostModel.findByPk(req.params.postId);
+    if (post) res.send(post);
+    else
       next(
         createHttpError(404, `Post with id ${req.params.postId} not found!`)
       );
-    }
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    next(error);
   }
 });
 
-PostsRouter.put("/posts/:postId", async (req, res, next) => {
+PostsRouter.put("/posts/single/:postId", async (req, res, next) => {
   try {
-    let updated = await PostModel.findByIdAndUpdate(
-      req.params.postId,
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (updated) {
-      res.send(updated);
-    } else {
+    const updatedPost = await PostModel.update(req.body, {
+      where: { postId: req.params.postId },
+      returning: true,
+    });
+    if (updatedPost) res.send(updatedPost);
+    else
       next(
         createHttpError(404, `Post with id ${req.params.postId} not found!`)
       );
-    }
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    next(error);
   }
 });
 
-PostsRouter.delete("/posts/:postId", async (req, res, next) => {
+PostsRouter.delete("/posts/single/:postId", async (req, res, next) => {
   try {
-    const deleted = await PostModel.findByIdAndDelete(req.params.postId);
-    if (deleted) {
-      const user = await UsersModel.findByIdAndUpdate(
-        req.params.userId,
-        { $pull: { experiences: req.params.expId } },
-        { new: true, runValidators: true }
-      );
+    const deletedPost = await PostModel.destroy({
+      where: { postId: req.params.postId },
+    });
+
+    if (deletedPost) {
       res.status(204).send();
+    } else {
+      next(
+        createHttpError(404, `Post with id ${req.params.postId} not found!`)
+      );
     }
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    next(error);
+  }
+});
+PostsRouter.delete("/posts/all/:userId", async (req, res, next) => {
+  try {
+    const deletedPost = await PostModel.destroy({
+      where: { userId: req.params.userId },
+    });
+
+    if (deletedPost) {
+      res.status(204).send();
+    } else {
+      next(
+        createHttpError(404, `Post with id ${req.params.postId} not found!`)
+      );
+    }
+  } catch (error) {
+    next(error);
   }
 });
 
 // like dislike ✅ add liked post's id into user's liked posts property.
-PostsRouter.post("/posts/:postId/like", async (req, res, next) => {
-  try {
-    const post = await PostModel.findById(req.params.postId);
-    if (post) {
-      if (!post.likes.includes(req.body.userId)) {
-        const likedPost = await PostModel.findByIdAndUpdate(
-          req.params.postId,
-          { $push: { likes: req.body.userId } },
-          { new: true, runValidators: true }
-        );
-        await UsersModel.findByIdAndUpdate(
-          req.body.userId,
-          { $push: { likedPosts: req.params.postId } },
-          { new: true, runValidators: true }
-        );
-        res.send({
-          likesCount: likedPost.likes.length,
-          likes: likedPost.likes,
-          message: "Post liked!",
-        });
-      } else {
-        next(createHttpError(400, "You have already liked the post!"));
-      }
-    } else {
-      next(
-        createHttpError(404, `Post with od ${req.params.postId} not found!`)
-      );
-    }
-  } catch (error) {
-    next(error);
-  }
-});
+// PostsRouter.post("/posts/:postId/like", async (req, res, next) => {
+//   try {
+//     const post = await PostModel.findById(req.params.postId);
+//     if (post) {
+//       if (!post.likes.includes(req.body.userId)) {
+//         const likedPost = await PostModel.findByIdAndUpdate(
+//           req.params.postId,
+//           { $push: { likes: req.body.userId } },
+//           { new: true, runValidators: true }
+//         );
+//         await UsersModel.findByIdAndUpdate(
+//           req.body.userId,
+//           { $push: { likedPosts: req.params.postId } },
+//           { new: true, runValidators: true }
+//         );
+//         res.send({
+//           likesCount: likedPost.likes.length,
+//           likes: likedPost.likes,
+//           message: "Post liked!",
+//         });
+//       } else {
+//         next(createHttpError(400, "You have already liked the post!"));
+//       }
+//     } else {
+//       next(
+//         createHttpError(404, `Post with od ${req.params.postId} not found!`)
+//       );
+//     }
+//   } catch (error) {
+//     next(error);
+//   }
+// });
 
-PostsRouter.delete("/posts/:postId/dislike", async (req, res, next) => {
-  try {
-    const post = await PostModel.findById(req.params.postId);
-    if (post) {
-      if (post.likes.includes(req.body.userId)) {
-        const dislikedPost = await PostModel.findByIdAndUpdate(
-          req.params.postId,
-          { $pull: { likes: req.body.userId } },
-          { new: true, runValidators: true }
-        );
-        await UsersModel.findByIdAndUpdate(
-          req.body.userId,
-          { $pull: { likedPosts: req.params.postId } },
-          { new: true, runValidators: true }
-        );
-        res.send({
-          likesCount: dislikedPost.likes.length,
-          likes: dislikedPost.likes,
-          message: "Post disliked!",
-        });
-      } else {
-        next(createHttpError(400, "You have already disliked the post!"));
-      }
-    } else {
-      next(
-        createHttpError(404, `Post with id ${req.params.postId} not found!`)
-      );
-    }
-  } catch (error) {
-    next(error);
-  }
-});
+// PostsRouter.delete("/posts/:postId/dislike", async (req, res, next) => {
+//   try {
+//     const post = await PostModel.findById(req.params.postId);
+//     if (post) {
+//       if (post.likes.includes(req.body.userId)) {
+//         const dislikedPost = await PostModel.findByIdAndUpdate(
+//           req.params.postId,
+//           { $pull: { likes: req.body.userId } },
+//           { new: true, runValidators: true }
+//         );
+//         await UsersModel.findByIdAndUpdate(
+//           req.body.userId,
+//           { $pull: { likedPosts: req.params.postId } },
+//           { new: true, runValidators: true }
+//         );
+//         res.send({
+//           likesCount: dislikedPost.likes.length,
+//           likes: dislikedPost.likes,
+//           message: "Post disliked!",
+//         });
+//       } else {
+//         next(createHttpError(400, "You have already disliked the post!"));
+//       }
+//     } else {
+//       next(
+//         createHttpError(404, `Post with id ${req.params.postId} not found!`)
+//       );
+//     }
+//   } catch (error) {
+//     next(error);
+//   }
+// });
 
 export default PostsRouter;

@@ -1,10 +1,9 @@
 import Express from "express";
 import listEndpoints from "express-list-endpoints";
 
-import mongoose from "mongoose";
 import cors from "cors";
 import {
-  badRequestHandler,
+  badRequestErrorHandler,
   genericErrorHandler,
   notFoundHandler,
 } from "./errorHandlers.js";
@@ -17,6 +16,7 @@ import ExperienceFileRouter from "./api/File/ExperienceFileRouter.js";
 import commentRouter from "./api/Comments/index.js";
 import pdfFileRouter from "./api/File/pdfFileRouter.js";
 import createHttpError from "http-errors";
+import { pgConnect } from "./db.js";
 
 const server = Express();
 const port = process.env.PORT;
@@ -47,16 +47,13 @@ server.use("/api", PostsFileRouter);
 server.use("/api", commentRouter);
 server.use("/api", pdfFileRouter);
 
-server.use(badRequestHandler);
+server.use(badRequestErrorHandler);
 
 server.use(notFoundHandler);
 server.use(genericErrorHandler);
+await pgConnect();
 
-mongoose.connect(process.env.MONGO_URL);
-mongoose.connection.on("connected", () => {
-  console.log("succesfully connected to mongo ✅");
-  server.listen(port, () => {
-    // console.table(listEndpoints(server));
-    console.log(`Server is running on port ${port}`);
-  });
+server.listen(port, () => {
+  console.table(listEndpoints(server));
+  console.log(`Server is running on port ${port}`);
 });

@@ -1,13 +1,19 @@
-import mongoose from "mongoose";
+import { ValidationError } from "sequelize";
 
-export const badRequestHandler = (err, req, res, next) => {
-  if (err.status === 400 || err instanceof mongoose.Error.ValidationError) {
+export const badRequestErrorHandler = (err, req, res, next) => {
+  if (err.status === 400) {
     res.status(400).send({
+      success: false,
       message: err.message,
+      errorsList: err.errorsList,
     });
-  } else if (err instanceof mongoose.Error.CastError) {
-    res.status(400).send({ message: "Invalid _id in request params!" });
-  } else next(err);
+  } else if (err instanceof ValidationError) {
+    res
+      .status(400)
+      .send({ success: false, message: err.errors.map((e) => e.message) });
+  } else {
+    next(err);
+  }
 };
 
 export const notFoundHandler = (err, req, res, next) => {

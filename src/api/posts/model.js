@@ -1,13 +1,28 @@
-import mongoose, { model, Types } from "mongoose"
+import { DataTypes } from "sequelize";
+import sequelize from "../../db.js";
+import CommentModel from "../Comments/model.js";
 
-const {Schema}=mongoose
+const PostModel = sequelize.define("post", {
+  postId: {
+    type: DataTypes.UUID,
+    primaryKey: true,
+    defaultValue: DataTypes.UUIDV4,
+  },
+  text: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      len: [2, 200],
+    },
+  },
+  image: { type: DataTypes.STRING, allowNull: true, default: "" },
+});
 
-const PostsSchema= new Schema({
-    text:{type:String,required:true,minLength: 5, maxLength:120 },
-    image:{type:String, default:""},
-    user:{type:mongoose.Types.ObjectId,required:true, ref:"User"},
-    comments:[{type:mongoose.Types.ObjectId,required:true, ref:"Comment"}],
-    likes:[{type:mongoose.Types.ObjectId, ref: "User"}]
-},{timestamps:true})
-
-export default model("Post",PostsSchema)
+// Post with one Comments, comment with one post
+PostModel.hasMany(CommentModel, {
+  foreignKey: { name: "postId", allowNull: false },
+});
+CommentModel.belongsTo(PostModel, {
+  foreignKey: { name: "postId", allowNull: false },
+});
+export default PostModel;
