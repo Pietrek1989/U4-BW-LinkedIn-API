@@ -80,7 +80,7 @@ PostsRouter.get("/posts/:userId", async (req, res, next) => {
       ],
     });
     res.send({
-      total: posts.count,
+      total: posts.rows.length,
       // offset,
       // limit,
       posts: posts.rows,

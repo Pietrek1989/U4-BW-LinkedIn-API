@@ -83,23 +83,6 @@ commentRouter.get("/comments/post/:postId", async (req, res, next) => {
     next(error);
   }
 });
-commentRouter.get("comments/user/:user:id", async (req, res, next) => {
-  try {
-    const Comment = await commentSchema.findById(req.params.commentId);
-    if (Comment) {
-      res.send(Comment);
-    } else {
-      next(
-        createHttpError(
-          404,
-          `Comment with the id of ${req.params.commentId} not found`
-        )
-      );
-    }
-  } catch (err) {
-    next(err);
-  }
-});
 
 commentRouter.get("/comments/single/:commentId", async (req, res, next) => {
   try {
@@ -136,15 +119,18 @@ commentRouter.put("/comments/single/:commentId", async (req, res, next) => {
 
 commentRouter.delete("/comments/single/:commentId", async (req, res, next) => {
   try {
-    const deletedPost = await CommentModel.destroy({
-      where: { postId: req.params.commentId },
+    const deletedComment = await CommentModel.destroy({
+      where: { commentId: req.params.commentId },
     });
 
-    if (deletedPost) {
+    if (deletedComment) {
       res.status(204).send();
     } else {
       next(
-        createHttpError(404, `Post with id ${req.params.commentId} not found!`)
+        createHttpError(
+          404,
+          `Comment with id ${req.params.commentId} not found!`
+        )
       );
     }
   } catch (err) {

@@ -6,7 +6,6 @@ import ExperienceModel from "../experiences/model.js";
 import PostModel from "../posts/model.js";
 import { Op } from "sequelize";
 
-
 const UsersRouter = Express.Router();
 
 UsersRouter.post("/users", async (req, res, next) => {
@@ -63,11 +62,11 @@ UsersRouter.get("/users", async (req, res, next) => {
     const prevPageOffset = parseInt(offset) - parseInt(limit);
     const nextPageUrl =
       nextPageOffset < userCount
-        ? `${req.baseUrl}?limit=${limit}&offset=${nextPageOffset}`
+        ? `${req.baseUrl}/users?limit=${limit}&offset=${nextPageOffset}`
         : null;
     const prevPageUrl =
       prevPageOffset >= 0
-        ? `${req.baseUrl}?limit=${limit}&offset=${prevPageOffset}`
+        ? `${req.baseUrl}/users?limit=${limit}&offset=${prevPageOffset}`
         : null;
 
     res.send({
